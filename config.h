@@ -48,8 +48,23 @@ static constexpr const char* ETH_GATEWAY     = "10.0.0.1";
 static constexpr const char* PC_IP_ADDR      = "10.0.0.100";
 
 // ============================================================================
-//  NETWORK — WI-FI
+//  NETWORK — WI-FI (Static IP)
 // ============================================================================
+
+/** @brief Static IP for Wi-Fi interface. */
+static constexpr const char* WIFI_STATIC_IP   = "192.168.1.9";
+
+/** @brief Subnet mask for Wi-Fi. */
+static constexpr const char* WIFI_SUBNET_MASK = "255.255.255.0";
+
+/** @brief Default gateway for Wi-Fi (router). */
+static constexpr const char* WIFI_GATEWAY     = "192.168.1.1";
+
+/** @brief Primary DNS for Wi-Fi. */
+static constexpr const char* WIFI_DNS1        = "8.8.8.8";
+
+/** @brief Secondary DNS for Wi-Fi. */
+static constexpr const char* WIFI_DNS2        = "8.8.4.4";
 
 /**
  * @brief Maximum number of Wi-Fi reconnect attempts before resetting.
@@ -156,6 +171,12 @@ static constexpr const char* NVS_NAMESPACE = "wolctrl";
 
 /** @brief NVS key for the last processed Telegram update ID. */
 static constexpr const char* NVS_KEY_LAST_UPDATE = "lastUpdId";
+
+/** @brief NVS key for watchdog enabled/disabled state. */
+static constexpr const char* NVS_KEY_WATCHDOG = "wdEnabled";
+
+/** @brief Default watchdog state on first boot (true = enabled). */
+static constexpr bool WATCHDOG_DEFAULT_ENABLED = true;
 
 // ============================================================================
 //  FIRMWARE METADATA

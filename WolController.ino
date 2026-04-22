@@ -77,17 +77,7 @@ void setup() {
     esp_task_wdt_add(NULL);              // Subscribe current task (loopTask)
     LOG_INFO("main", "Hardware watchdog registered");
 
-    // --- 3. Remote Log Server (Telnet) ---
-    RemoteLog::instance().begin();
-
-    // Register remote output callback in Logger — all log lines will now
-    // be mirrored to connected telnet clients in addition to Serial.
-    Logger::instance().setRemoteOutput([](const char* line) {
-        RemoteLog::instance().write(line);
-    });
-    LOG_INFO("main", "Remote log callback registered (port %u)", TELNET_PORT);
-
-    // --- 4. Network ---
+    // --- 3. Network (must be before RemoteLog — WiFiServer needs lwIP) ---
     Result netResult = NetMgr::instance().begin();
     if (!netResult.ok) {
         LOG_ERROR("main", "Network init FAILED: %s", netResult.error);
@@ -96,6 +86,16 @@ void setup() {
         ESP.restart();
     }
     LOG_INFO("main", "Network subsystem initialized (awaiting connections)");
+
+    // --- 4. Remote Log Server (Telnet) — after network stack is up ---
+    RemoteLog::instance().begin();
+
+    // Register remote output callback in Logger — all log lines will now
+    // be mirrored to connected telnet clients in addition to Serial.
+    Logger::instance().setRemoteOutput([](const char* line) {
+        RemoteLog::instance().write(line);
+    });
+    LOG_INFO("main", "Remote log callback registered (port %u)", TELNET_PORT);
 
     // Brief wait for initial connections (non-critical, just for cleaner logs)
     unsigned long waitStart = millis();
@@ -129,7 +129,10 @@ void setup() {
         LOG_ERROR("main", "OTA init FAILED: %s", otaResult.error);
     }
 
-    // --- 6. Telegram ---
+    // --- 6. Watchdog (load persisted state from NVS) ---
+    Watchdog::instance().begin();
+
+    // --- 7. Telegram ---
     Result tgResult = TelegramManager::instance().begin();
     if (!tgResult.ok) {
         LOG_ERROR("main", "Telegram init FAILED: %s", tgResult.error);

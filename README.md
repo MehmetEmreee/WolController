@@ -15,8 +15,8 @@ Because it implements two network interfaces simultaneously:
 ## ✨ Features
 
 - **Telegram Bot Integration:** Control everything via an interactive Telegram chat. Long-polling implemented with exponential backoff for internet drops.
-- **Dual-Stack Network:** Event-driven network manager handling Wi-Fi (`STA`) and Ethernet (`LAN8720A`) simultaneously.
-- **Automated Watchdog:** Configurable state-machine ping watchdog. If your PC drops off the Ethernet network (power cut, crash), the ESP32 can automatically send a Wake-on-LAN recovery packet!
+- **Dual-Stack Network:** Event-driven network manager handling Wi-Fi (`STA` with Static IP) and Ethernet (`LAN8720A` with Static IP) simultaneously.
+- **Automated Watchdog:** Configurable state-machine ping watchdog. If your PC drops off the Ethernet network (power cut, crash), the ESP32 can automatically send a Wake-on-LAN recovery packet! The watchdog state is saved to non-volatile storage (NVS) across reboots and starts automatically by default.
 - **Over-The-Air (OTA) Updates:** Flash new firmware wirelessly instead of connecting USB adapters.
 - **Remote Log Server:** Telnet into port `23` (`telnet <ESP_IP> 23`) from your local network to read live serial logs with a built-in 4KB circular history buffer.
 - **Zero Heap Allocations (Hot Path):** Extensive use of stack buffers (`StaticJsonDocument<N>`) and bounded `snprintf` to prevent heap fragmentation.
@@ -84,8 +84,8 @@ Sistem aynı anda iki ayrı ağ donanımını kontrol eder:
 ## ✨ Özellikler
 
 - **Telegram Bot Entegrasyonu:** İnteraktif sohbet üzerinden kontrol. İnternet kesilirse bile *exponential backoff* algoritmasıyla log düşerek bot kendisini sürekli çevrimiçi tutmaya çalışır.
-- **Çift-Yönlü Altyapı:** Wi-Fi ve Kablolu LAN ağının eşzamanlı ve event-driven (olay örgülü) yönetimi.
-- **Otomatik Watchdog:** Ayarlanabilir "Durum Makineli (state-machine)" ping tabanlı koruyucu sistem. Bilgisayara giden ping istekleri timeouta düşerse (örneğin elektrik gidip gelmesi veya Windows mavi ekran atması durumunda) sistem PC'yi kurtarmak için otomatik WoL paketleri atar!
+- **Çift-Yönlü Altyapı:** Wi-Fi (Statik IP) ve Kablolu LAN ağının eşzamanlı ve event-driven (olay örgülü) yönetimi.
+- **Otomatik Watchdog:** Ayarlanabilir "Durum Makineli (state-machine)" ping tabanlı koruyucu sistem. Bilgisayara giden ping istekleri timeouta düşerse (örneğin elektrik gidip gelmesi veya Windows mavi ekran atması durumunda) sistem PC'yi kurtarmak için otomatik WoL paketleri atar! Watchdog durumu çip içerisindeki NVS belleğe kalıcı işlenir; elektrik gidip geldiğinde son koruma durumunu hatırlar ve aktifse otomatik çalışmaya devam eder.
 - **Over-The-Air (OTA):** Firmware güncellemenizi artık USB bağlamadan kablosuz olarak atın.
 - **Uzak Log Sunucusu:** Herhangi bir cihaz üzerinden kablosuz olarak ağ üzerindeki ESP loglarını okuyabilirsiniz (`telnet <ESP_IP> 23`). Giriş yapıldığında son 4KB lık log geçmişi size telnet üzerinden yansıtılır.
 - **Heap Temizliği İşlemleri:** Tüm log veya network döngü yüklerinde `StaticJsonDocument<N>` gibi RAM'e işlenip biten anlık bellek işlemleri kullanılarak sistem haftalarca çökmeden stabil çalıştırılır.

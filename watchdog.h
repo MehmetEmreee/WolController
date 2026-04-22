@@ -1,10 +1,15 @@
 /**
  * @file watchdog.h
- * @brief Async ping-based watchdog with explicit state machine and WoL trigger.
+ * @brief Async ping-based watchdog with explicit state machine, WoL trigger,
+ *        and NVS-persisted enabled/disabled state.
  *
  * Implements a cooperative, non-blocking watchdog that monitors PC availability
  * via ICMP ping over the Ethernet interface. When consecutive ping failures
  * exceed the configured threshold, a Wake-on-LAN packet is automatically sent.
+ *
+ * The watchdog enabled/disabled state is persisted to NVS so that it survives
+ * power cycles and soft-resets. On first boot, WATCHDOG_DEFAULT_ENABLED
+ * (config.h) determines the initial state.
  *
  * State Machine:
  *   IDLE → MONITORING → PINGING → FAILED → RECOVERING → MONITORING
@@ -19,6 +24,7 @@
 #define WATCHDOG_H
 
 #include <ESP32Ping.h>
+#include <Preferences.h>
 #include "config.h"
 #include "logger.h"
 #include "network_mgr.h"
@@ -66,7 +72,7 @@ struct PingResult {
  * @brief Async ping-based PC watchdog with WoL auto-recovery.
  *
  * Justified singleton: Single watchdog monitoring a single target PC.
- * Mutable state: state machine, fail counters, timing.
+ * Mutable state: state machine, fail counters, timing, NVS persistence.
  */
 class Watchdog {
 public:
@@ -80,9 +86,39 @@ public:
     }
 
     /**
+     * @brief Initialize watchdog and restore persisted state from NVS.
+     *
+     * Reads the saved enabled/disabled flag from NVS. If the watchdog was
+     * enabled before the last reboot (or if this is the first boot and
+     * WATCHDOG_DEFAULT_ENABLED is true), it will be auto-enabled.
+     *
+     * Auto-enable is deferred — the watchdog state is set to PENDING so
+     * that update() can wait for Ethernet to connect before activating.
+     *
+     * @return Result indicating initialization success.
+     */
+    Result begin() {
+        prefs_.begin(NVS_NAMESPACE, false);
+
+        // Read persisted state. On first boot, key won't exist → use default.
+        bool shouldEnable = prefs_.getBool(NVS_KEY_WATCHDOG, WATCHDOG_DEFAULT_ENABLED);
+
+        if (shouldEnable) {
+            pendingAutoEnable_ = true;
+            LOG_INFO(WD_TAG, "Watchdog will auto-enable once Ethernet is ready "
+                     "(persisted state: ON)");
+        } else {
+            LOG_INFO(WD_TAG, "Watchdog starts disabled (persisted state: OFF)");
+        }
+
+        return {true, nullptr};
+    }
+
+    /**
      * @brief Enable the watchdog — transition from IDLE to MONITORING.
      *
      * Resets all counters and begins the ping/monitor cycle.
+     * Persists the enabled state to NVS.
      *
      * @return Result indicating if watchdog was successfully enabled.
      */
@@ -103,6 +139,9 @@ public:
         lastPingMs_ = millis();
         transitionTo(WatchdogState::MONITORING);
 
+        // Persist enabled state to NVS
+        persistState(true);
+
         LOG_INFO(WD_TAG, "Watchdog enabled — monitoring %s every %ums, threshold: %u",
                  PC_IP_ADDR,
                  WATCHDOG_PING_INTERVAL_MS,
@@ -114,13 +153,19 @@ public:
     /**
      * @brief Disable the watchdog — transition any state to IDLE.
      *
+     * Persists the disabled state to NVS.
+     *
      * @return Result (always succeeds).
      */
     Result disable() {
         WatchdogState prevState = state_;
         failCount_ = 0;
         wolRetries_ = 0;
+        pendingAutoEnable_ = false;
         transitionTo(WatchdogState::IDLE);
+
+        // Persist disabled state to NVS
+        persistState(false);
 
         LOG_INFO(WD_TAG, "Watchdog disabled (was %s)", watchdogStateToStr(prevState));
         return {true, nullptr};
@@ -130,10 +175,21 @@ public:
      * @brief Cooperative update — call every loop() iteration.
      *
      * Drives the state machine forward based on elapsed time.
+     * Also handles deferred auto-enable when Ethernet becomes available.
      * All operations are non-blocking.
      */
     void update() {
         unsigned long now = millis();
+
+        // Handle deferred auto-enable: wait for Ethernet before starting
+        if (pendingAutoEnable_ && state_ == WatchdogState::IDLE) {
+            if (NetMgr::instance().isEthConnected()) {
+                pendingAutoEnable_ = false;
+                LOG_INFO(WD_TAG, "Ethernet connected — auto-enabling watchdog");
+                enable();
+            }
+            return;  // Don't run state machine while waiting
+        }
 
         switch (state_) {
             case WatchdogState::IDLE:
@@ -222,6 +278,12 @@ public:
      */
     bool isActive() const { return state_ != WatchdogState::IDLE; }
 
+    /**
+     * @brief Check if auto-enable is pending (waiting for Ethernet).
+     * @return true if watchdog is waiting to auto-enable.
+     */
+    bool isPendingAutoEnable() const { return pendingAutoEnable_; }
+
     // Delete copy/move
     Watchdog(const Watchdog&) = delete;
     Watchdog& operator=(const Watchdog&) = delete;
@@ -245,6 +307,21 @@ private:
 
     /** @brief Timestamp of recovery phase start. */
     unsigned long recoveryStartMs_ = 0;
+
+    /** @brief Flag for deferred auto-enable (waiting for Ethernet). */
+    bool pendingAutoEnable_ = false;
+
+    /** @brief NVS preferences handle for watchdog persistence. */
+    Preferences prefs_;
+
+    /**
+     * @brief Persist the watchdog enabled/disabled state to NVS.
+     * @param enabled true to persist as enabled, false as disabled.
+     */
+    void persistState(bool enabled) {
+        prefs_.putBool(NVS_KEY_WATCHDOG, enabled);
+        LOG_INFO(WD_TAG, "Persisted watchdog state: %s", enabled ? "ON" : "OFF");
+    }
 
     /**
      * @brief Transition the state machine and log the change.
@@ -308,6 +385,8 @@ private:
             transitionTo(WatchdogState::IDLE);
             failCount_ = 0;
             wolRetries_ = 0;
+            // Note: don't persist OFF here — user likely wants it to
+            // auto-enable again after next reboot
             return;
         }
 

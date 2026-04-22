@@ -90,10 +90,22 @@ public:
         ETH.config(ethIp, ethGw, ethSubnet);
         LOG_INFO(NET_TAG, "Ethernet PHY started, awaiting link...");
 
-        // --- Wi-Fi Setup (STA / DHCP) ---
-        LOG_INFO(NET_TAG, "Starting Wi-Fi STA...");
+        // --- Wi-Fi Setup (STA / Static IP) ---
+        LOG_INFO(NET_TAG, "Starting Wi-Fi STA (static IP: %s)...", WIFI_STATIC_IP);
         WiFi.mode(WIFI_STA);
         WiFi.setAutoReconnect(true);
+
+        // Configure static IP before connecting
+        IPAddress wifiIp, wifiSubnet, wifiGw, wifiDns1, wifiDns2;
+        if (!wifiIp.fromString(WIFI_STATIC_IP) ||
+            !wifiSubnet.fromString(WIFI_SUBNET_MASK) ||
+            !wifiGw.fromString(WIFI_GATEWAY) ||
+            !wifiDns1.fromString(WIFI_DNS1) ||
+            !wifiDns2.fromString(WIFI_DNS2)) {
+            return {false, "Failed to parse Wi-Fi static IP configuration"};
+        }
+        WiFi.config(wifiIp, wifiGw, wifiSubnet, wifiDns1, wifiDns2);
+
         WiFi.begin(WIFI_SSID, WIFI_PASS);
         LOG_INFO(NET_TAG, "Wi-Fi connecting to SSID: %s", WIFI_SSID);
 
