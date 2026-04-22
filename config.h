@@ -60,6 +60,22 @@ static constexpr uint8_t WIFI_MAX_RETRIES = 20;
 /** @brief Delay between Wi-Fi reconnect attempts (ms). */
 static constexpr uint32_t WIFI_RECONNECT_INTERVAL_MS = 5000;
 
+// ============================================================================
+//  OTA (Over-the-Air Updates)
+// ============================================================================
+
+/** @brief OTA service port. */
+static constexpr uint16_t OTA_PORT = 3232;
+
+/** @brief OTA mDNS hostname. */
+static constexpr const char* OTA_HOSTNAME = "wol-controller";
+
+// ============================================================================
+//  REMOTE LOG (Telnet Serial Bridge)
+// ============================================================================
+
+/** @brief Telnet server port for remote serial access. */
+static constexpr uint16_t TELNET_PORT = 23;
 
 // ============================================================================
 //  TIMING — COOPERATIVE SCHEDULER INTERVALS
@@ -146,7 +162,7 @@ static constexpr const char* NVS_KEY_LAST_UPDATE = "lastUpdId";
 // ============================================================================
 
 /** @brief Firmware version string. */
-static constexpr const char* FW_VERSION = "1.0.0";
+static constexpr const char* FW_VERSION = "1.1.0";
 
 /** @brief Firmware build identifier. */
 static constexpr const char* FW_BUILD   = __DATE__ " " __TIME__;

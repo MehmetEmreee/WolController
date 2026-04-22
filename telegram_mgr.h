@@ -563,7 +563,9 @@ static void cmdInfo(int64_t chatId, const char* /* payload */) {
              "💾 *Free Heap:* %u bytes\n\n"
              "🐕 *Watchdog:* %s\n"
              "• Failures: %u/%u\n"
-             "• WoL retries: %u/%u",
+             "• WoL retries: %u/%u\n\n"
+             "🔌 *Remote Log:* `telnet %s %u`\n"
+             "📡 *OTA:* Enabled (port %u)",
              FW_VERSION,
              FW_BUILD,
              NetMgr::instance().isEthConnected() ?
@@ -579,7 +581,11 @@ static void cmdInfo(int64_t chatId, const char* /* payload */) {
              Watchdog::instance().getFailCount(),
              WATCHDOG_FAIL_THRESHOLD,
              Watchdog::instance().getWolRetries(),
-             WATCHDOG_MAX_WOL_RETRIES);
+             WATCHDOG_MAX_WOL_RETRIES,
+             NetMgr::instance().isWifiConnected() ?
+                 WiFi.localIP().toString().c_str() : "N/A",
+             TELNET_PORT,
+             OTA_PORT);
 
     TelegramManager::instance().sendMessage(chatId, String(buf));
 }

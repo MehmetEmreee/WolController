@@ -36,6 +36,13 @@ static constexpr const char* BOT_TOKEN = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz";
 static constexpr int64_t ALLOWED_CHAT_ID = 123456789;
 
 // ============================================================================
+//  OTA (Over-the-Air Updates)
+// ============================================================================
+
+/** @brief Password for OTA firmware updates. */
+static constexpr const char* OTA_PASSWORD = "your_ota_password";
+
+// ============================================================================
 //  TARGET PC — WAKE-ON-LAN
 // ============================================================================
 

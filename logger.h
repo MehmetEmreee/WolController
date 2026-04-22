@@ -1,12 +1,17 @@
 /**
  * @file logger.h
- * @brief Structured serial logging with severity levels and module tags.
+ * @brief Structured serial logging with severity levels, module tags,
+ *        and optional remote output via callback.
  *
  * Provides a zero-allocation logging interface that formats output as:
  *   [LEVEL] [module] message
  *
  * All log functions use stack-allocated buffers with bounded snprintf to
  * prevent heap fragmentation in the hot path.
+ *
+ * Remote output: A callback can be registered via setRemoteOutput() to
+ * mirror log lines to a remote sink (e.g., telnet server). This avoids
+ * circular header dependencies between Logger and RemoteLog.
  *
  * @note Serial must be initialized (Serial.begin) before calling any
  *       log function.
@@ -28,13 +33,22 @@ enum class LogLevel : uint8_t {
 };
 
 /**
+ * @brief Function pointer type for remote log output.
+ *
+ * The function receives the fully formatted log line (without trailing newline).
+ * It must be non-blocking and fast.
+ */
+using RemoteOutputFn = void(*)(const char* line);
+
+/**
  * @brief Structured logger singleton.
  *
  * Formats and emits log lines to Serial with consistent formatting.
+ * Optionally mirrors output to a remote sink via registered callback.
  * Thread-safe only in single-core cooperative context (no RTOS tasks).
  *
- * Justified singleton: Single Serial resource, no mutable state beyond
- * the underlying Serial peripheral which is itself a singleton.
+ * Justified singleton: Single Serial resource, minimal mutable state
+ * (only the optional remote output callback pointer).
  */
 class Logger {
 public:
@@ -56,6 +70,18 @@ public:
         while (!Serial && millis() < 3000) {
             // Wait up to 3s for serial connection (USB CDC)
         }
+    }
+
+    /**
+     * @brief Register a remote output callback.
+     *
+     * Once set, all log lines will be mirrored to this function in addition
+     * to Serial. Pass nullptr to disable remote output.
+     *
+     * @param fn Function pointer to call with each formatted log line.
+     */
+    void setRemoteOutput(RemoteOutputFn fn) {
+        remoteOutputFn_ = fn;
     }
 
     /**
@@ -106,6 +132,9 @@ public:
 private:
     Logger() = default;
 
+    /** @brief Optional remote output callback (nullptr = disabled). */
+    RemoteOutputFn remoteOutputFn_ = nullptr;
+
     /**
      * @brief Convert LogLevel enum to fixed-width string for formatting.
      * @param level The log severity level.
@@ -123,7 +152,8 @@ private:
     /**
      * @brief Core log formatting and emission.
      *
-     * Uses stack-allocated buffer with bounded vsnprintf. No heap allocation.
+     * Uses stack-allocated buffers with bounded vsnprintf. No heap allocation.
+     * Outputs to Serial first, then to the remote callback if registered.
      *
      * @param level  Severity level.
      * @param module Source module tag.
@@ -131,17 +161,25 @@ private:
      * @param args   Variadic argument list.
      */
     void log(LogLevel level, const char* module, const char* fmt, va_list args) {
-        char msgBuf[LOG_MSG_MAX_LEN];
-
         // Format the user message portion
+        char msgBuf[LOG_MSG_MAX_LEN];
         int written = vsnprintf(msgBuf, sizeof(msgBuf), fmt, args);
-        // Ensure null-termination even on truncation
         if (written < 0) {
             msgBuf[0] = '\0';
         }
 
-        // Emit formatted log line: [LEVEL] [module] message
-        Serial.printf("[%s] [%s] %s\n", levelToStr(level), module, msgBuf);
+        // Format the complete log line: [LEVEL] [module] message
+        char lineBuf[LOG_MSG_MAX_LEN + 32];
+        snprintf(lineBuf, sizeof(lineBuf), "[%s] [%s] %s",
+                 levelToStr(level), module, msgBuf);
+
+        // Emit to Serial
+        Serial.println(lineBuf);
+
+        // Emit to remote output if registered
+        if (remoteOutputFn_) {
+            remoteOutputFn_(lineBuf);
+        }
     }
 };
 
